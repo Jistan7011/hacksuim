@@ -59,24 +59,27 @@ async function bootstrap() {
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('/api/api-docs', app, document, {
-    swaggerOptions: {
-      persistAuthorization: true,
-      authAction: {
-        'access-token': {
-          name: 'access-token',
-          schema: {
-            type: 'http',
-            scheme: 'bearer',
-            bearerFormat: 'JWT',
-            in: 'header',
+
+  if (process.env.NODE_ENV !== 'production') {
+    SwaggerModule.setup('/api/api-docs', app, document, {
+      swaggerOptions: {
+        persistAuthorization: true,
+        authAction: {
+          'access-token': {
+            name: 'access-token',
+            schema: {
+              type: 'http',
+              scheme: 'bearer',
+              bearerFormat: 'JWT',
+              in: 'header',
+            },
+            value:
+              'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOjIsImVtYWlsIjoiYXBpb3BlcmF0b3JAaGFja3NpdW0uaW4uYnVzYW4iLCJyb2xlIjoibGV2ZWxfMiIsImlhdCI6MTc1MTk5MjY2MSwiZXhwIjoxODM4MzkyNjYxfQ.yi4ubJfOS0fU1uPBi9qDp3a7zRgIbh80Yoh6W3LZ7Xc',
           },
-          value:
-            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOjIsImVtYWlsIjoiYXBpb3BlcmF0b3JAaGFja3NpdW0uaW4uYnVzYW4iLCJyb2xlIjoibGV2ZWxfMiIsImlhdCI6MTc1MTk5MjY2MSwiZXhwIjoxODM4MzkyNjYxfQ.yi4ubJfOS0fU1uPBi9qDp3a7zRgIbh80Yoh6W3LZ7Xc',
         },
       },
-    },
-  });
+    });
+  }
 
   app.enableCors({
     origin: true,
