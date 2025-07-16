@@ -59,24 +59,34 @@ async function bootstrap() {
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('/api/api-docs', app, document, {
-    swaggerOptions: {
-      persistAuthorization: true,
-      authAction: {
-        'access-token': {
-          name: 'access-token',
-          schema: {
-            type: 'http',
-            scheme: 'bearer',
-            bearerFormat: 'JWT',
-            in: 'header',
-          },
-          value:
-            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOjIsImVtYWlsIjoiYXBpb3BlcmF0b3JAaGFja3NpdW0uaW4uYnVzYW4iLCJyb2xlIjoibGV2ZWxfMiIsImlhdCI6MTc1MTk5MjY2MSwiZXhwIjoxODM4MzkyNjYxfQ.yi4ubJfOS0fU1uPBi9qDp3a7zRgIbh80Yoh6W3LZ7Xc',
-        },
+
+  if (process.env.NODE_ENV !== 'production') {
+    app.use('/api/api-docs', (req, res, next) => {
+      const auth = req.headers.authorization;
+      if (!auth || !auth.startsWith('Basic ')) {
+        res.setHeader('WWW-Authenticate', 'Basic realm="Swagger"');
+        return res.status(401).send('Authentication required.');
+      }
+
+      const base64Credentials = auth.split(' ')[1];
+      const [username, password] = Buffer.from(base64Credentials, 'base64').toString().split(':');
+
+      const BASIC_USER = 'admin';
+      const BASIC_PASS = 'admin123';
+
+      if (username !== BASIC_USER || password !== BASIC_PASS) {
+        return res.status(403).send('Forbidden');
+      }
+
+      next();
+    });
+
+    SwaggerModule.setup('/api/api-docs', app, document, {
+      swaggerOptions: {
+        persistAuthorization: true,
       },
-    },
-  });
+    });
+  }
 
   app.enableCors({
     origin: true,
@@ -94,7 +104,7 @@ async function bootstrap() {
 
   app.use(
     session({
-      secret: process.env.SESSION_SECRET ?? 'SESSION_SECRET',
+      secret: 'SESSION_SECRET',
       resave: false,
       saveUninitialized: false,
       cookie: {
@@ -106,7 +116,7 @@ async function bootstrap() {
   app.use(passport.initialize());
   app.use(passport.session());
 
-  await app.listen(process.env.NODE_PORT ?? 3000);
+  await app.listen(3000);
 }
 
 bootstrap();
