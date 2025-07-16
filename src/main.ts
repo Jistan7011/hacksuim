@@ -4,12 +4,6 @@ import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import * as session from 'express-session';
-import { RedisService } from 'nestjs-redis';
-import * as basicAuth from 'express-basic-auth';
-import * as crypto from 'crypto';
-import * as redis from 'ioredis';
-
-const redisClient = new redis();
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -47,16 +41,6 @@ async function bootstrap() {
     next();
   });
 
-  if (process.env.NODE_ENV !== 'production') {
-    app.use(
-      ['/api/api-docs'],
-      basicAuth({
-        users: { admin: 'smartcity123' },
-        challenge: true,
-      }),
-    );
-  }
-
   const config = new DocumentBuilder()
     .setTitle('SmartCity Automotive API for Public Transport')
     .setDescription('')
@@ -77,22 +61,29 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
 
   if (process.env.NODE_ENV !== 'production') {
+    app.use('/api/api-docs', (req, res, next) => {
+      const auth = req.headers.authorization;
+      if (!auth || !auth.startsWith('Basic ')) {
+        res.setHeader('WWW-Authenticate', 'Basic realm="Swagger"');
+        return res.status(401).send('Authentication required.');
+      }
+
+      const base64Credentials = auth.split(' ')[1];
+      const [username, password] = Buffer.from(base64Credentials, 'base64').toString().split(':');
+
+      const BASIC_USER = 'admin';
+      const BASIC_PASS = 'admin123';
+
+      if (username !== BASIC_USER || password !== BASIC_PASS) {
+        return res.status(403).send('Forbidden');
+      }
+
+      next();
+    });
+
     SwaggerModule.setup('/api/api-docs', app, document, {
       swaggerOptions: {
         persistAuthorization: true,
-        authAction: {
-          'access-token': {
-            name: 'access-token',
-            schema: {
-              type: 'http',
-              scheme: 'bearer',
-              bearerFormat: 'JWT',
-              in: 'header',
-            },
-            value:
-              'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOjIsImVtYWlsIjoiYXBpb3BlcmF0b3JAaGFja3NpdW0uaW4uYnVzYW4iLCJyb2xlIjoibGV2ZWxfMiIsImlhdCI6MTc1MTk5MjY2MSwiZXhwIjoxODM4MzkyNjYxfQ.yi4ubJfOS0fU1uPBi9qDp3a7zRgIbh80Yoh6W3LZ7Xc',
-          },
-        },
       },
     });
   }
@@ -124,14 +115,6 @@ async function bootstrap() {
 
   app.use(passport.initialize());
   app.use(passport.session());
-
-  app.use('/auth/refresh', async (req, res, next) => {
-    if (req.body && req.body.refreshToken) {
-      const hashed = crypto.createHash('sha256').update(req.body.refreshToken).digest('hex');
-      req.body.refreshTokenHashed = hashed;
-    }
-    next();
-  });
 
   await app.listen(3000);
 }
